@@ -1,0 +1,3 @@
+venv/
+clickhouse-jdbc-0.4.6-shaded.jar
+en.openfoodfacts.org.products.csv
