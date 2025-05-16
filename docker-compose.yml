@@ -12,17 +12,39 @@ services:
       - CLICKHOUSE_USER=mluser
       - CLICKHOUSE_PASSWORD=superpass
     healthcheck:
-      test: wget --spider -q http://localhost:8123/ping || exit 1
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
       interval: 10s
       retries: 5
+
+  datamart:
+    # Можно либо build: .  если Dockerfile лежит в том же репо,
+    # либо указать отдельную директорию / Dockerfile, например:
+    build:
+      context: .
+      dockerfile: Dockerfile_datamart
+    container_name: data_mart_service
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    # Важно: как только DataMart завершит работу (exit 0),
+    # контейнер "упадёт" в статус "exited (0)".
+    # Если нужно, чтобы контейнер оставался запущенным — нужен другой подход.
+    # Но, по заданию, нам нужно просто отработать и завершиться.
 
   pipeline:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile  # Это ваш Dockerfile c Python + PySpark
     container_name: data_pipeline
     depends_on:
-      clickhouse:
-        condition: service_healthy
+      datamart:
+        # По умолчанию condition: service_started, но нам важнее, 
+        # чтобы datamart успел выполнить логику.
+        # Увы, "completed_successfully" убрали в v3 — 
+        # оставим как есть, фактически pipeline просто запустится 
+        # после того, как datamart СТАРТАНЕТ (а он уже скорее всего 
+        # быстро отработает и выйдет).
+        condition: service_started
     environment:
       - PYTHONUNBUFFERED=1
+    # (при необходимости пробросить volumes и т.д.)

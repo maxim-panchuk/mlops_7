@@ -1,0 +1,31 @@
+# Берём Spark (или JDK) - к примеру bitnami/spark
+FROM bitnami/spark:latest
+
+USER root
+WORKDIR /app
+
+# (1) Скопируем ваш DataMart.scala и sbt-проект
+COPY . /app
+
+# Предположим, что у нас есть build.sbt, project/plugins.sbt и т. п.,
+# а сам DataMart.scala лежит в src/main/scala/DataMart.scala
+
+# (2) Собираем проект (sbt assembly / package)
+RUN apt-get update && apt-get install -y apt-transport-https curl gnupg \
+    && curl -L https://scala-lang.org/files/archive/scala-2.12.18.deb -o scala.deb \
+    && dpkg -i scala.deb \
+    && rm -f scala.deb
+
+# Установка sbt (упрощённо)
+RUN curl -L https://piccolo.link/sbt-1.8.2.tgz | tar zx -C /usr/local \
+    && ln -s /usr/local/sbt/bin/sbt /usr/local/bin/sbt
+
+# Собираем jar (зависит от вашей структуры)
+RUN sbt clean package
+
+# (3) Запускаем DataMart при старте контейнера
+# Предположим, что jar лежит теперь в target/scala-2.12/datamart_2.12-0.1.jar
+CMD ["spark-submit", \
+     "--class", "DataMart", \
+     "--master", "local[*]", \
+     "target/scala-2.12/datamart_2.12-0.1.jar"]
